@@ -8,7 +8,7 @@ export { useLocalStorage } from './useLocalStorage';
 export { useDebounce } from './useDebounce';
 
 // Business logic
-export { useAutomations, type Automation } from './useAutomations';
+export { useAutomations } from './useAutomations';
 
 // UI feedback
 export { useToast, type Toast } from './useToast';

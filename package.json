@@ -4,23 +4,32 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "doppler run -- vite",
+    "dev:local": "vite",
+    "build": "doppler run -- tsc -b && doppler run -- vite build",
+    "build:local": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "check": "tsc -b --noEmit"
+    "preview": "doppler run -- vite preview",
+    "preview:local": "vite preview",
+    "check": "tsc -b --noEmit",
+    "doppler:setup": "doppler setup",
+    "doppler:secrets": "doppler secrets"
   },
   "dependencies": {
+    "axios": "^1.11.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.8.2",
+    "recharts": "^3.1.2",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@types/express": "^5.0.3",
     "@types/node": "^22.15.30",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

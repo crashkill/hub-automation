@@ -1,502 +1,523 @@
-import React, { useState, useMemo } from 'react';
-import {
+import { useState, useEffect } from 'react';
+import { 
+  Play, 
+  Pause, 
+  Square, 
+  Settings, 
+  Filter, 
+  Search, 
   Plus,
-  Search,
-  Filter,
-  MoreVertical,
-  Play,
-  Pause,
-  Square,
-  Edit,
-  Trash2,
-  Copy,
-  Download,
-  Upload,
-  RefreshCw,
-  Grid,
-  List,
-  SortAsc,
-  SortDesc,
-  Bot
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Calendar,
+  Activity,
+  Zap,
+  Users,
+  Database,
+  Mail,
+  FileText,
+  Shield,
+  Eye
 } from 'lucide-react';
-
-import { Card, CardContent, CardHeader } from '../components/ui/Card';
+import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
+import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { Modal, ModalContent, ModalHeader, ModalFooter } from '../components/ui/Modal';
-import { AutomationCard } from '../components/automation/AutomationCard';
-import { StatusIndicator } from '../components/automation/StatusIndicator';
-import { cn } from '../utils/cn';
+import { useAutomations } from '../hooks/useAutomations';
+import { AutomationPlugin, AutomationExecution, AutomationStatus, AutomationPriority, AutomationConfig } from '../types/automation';
 
-type ViewMode = 'grid' | 'list';
-type SortField = 'name' | 'status' | 'lastRun' | 'successRate' | 'type';
-type SortOrder = 'asc' | 'desc';
-type FilterStatus = 'all' | 'running' | 'paused' | 'stopped' | 'error' | 'scheduled';
-type FilterType = 'all' | 'workflow' | 'script' | 'api' | 'scheduled';
+import { RHEvolutionPluginComponent } from '../components/plugins/RHEvolutionPluginComponent';
+import { GenericPluginComponent } from '../components/plugins/GenericPluginComponent';
 
-interface AutomationData {
-  id: string;
-  name: string;
-  description: string;
-  status: 'running' | 'paused' | 'stopped' | 'error' | 'scheduled';
-  type: 'workflow' | 'script' | 'api' | 'scheduled';
-  lastRun?: Date;
-  nextRun?: Date;
-  successRate: number;
-  executionCount: number;
-  avgDuration: number;
-  tags: string[];
-  createdAt: Date;
-  updatedAt: Date;
+type FilterStatus = 'all' | 'idle' | 'running' | 'paused' | 'completed' | 'error' | 'scheduled';
+
+interface ExecutionCardProps {
+  execution: AutomationExecution;
+  onStop: (executionId: string) => void;
+  onView: (executionId: string) => void;
+  isStopping?: boolean;
 }
 
-// Mock data
-const mockAutomations: AutomationData[] = [
-  {
-    id: '1',
-    name: 'Backup Diário do Sistema',
-    description: 'Realiza backup completo dos dados do sistema todos os dias às 2h da manhã',
-    status: 'running',
-    type: 'scheduled',
-    lastRun: new Date(Date.now() - 30 * 60 * 1000),
-    nextRun: new Date(Date.now() + 6 * 60 * 60 * 1000),
-    successRate: 98.5,
-    executionCount: 156,
-    avgDuration: 45,
-    tags: ['backup', 'sistema', 'crítico'],
-    createdAt: new Date('2024-01-15'),
-    updatedAt: new Date('2024-01-20')
-  },
-  {
-    id: '2',
-    name: 'Sincronização RH Evolution',
-    description: 'Sincroniza dados de funcionários entre o sistema RH Evolution e o banco principal',
-    status: 'scheduled',
-    type: 'api',
-    lastRun: new Date(Date.now() - 15 * 60 * 1000),
-    nextRun: new Date(Date.now() + 2 * 60 * 60 * 1000),
-    successRate: 92.1,
-    executionCount: 89,
-    avgDuration: 12,
-    tags: ['rh', 'sincronização', 'api'],
-    createdAt: new Date('2024-01-10'),
-    updatedAt: new Date('2024-01-18')
-  },
-  {
-    id: '3',
-    name: 'Relatório Mensal de Performance',
-    description: 'Gera relatórios mensais de performance e envia por email para gestores',
-    status: 'error',
-    type: 'workflow',
-    lastRun: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    nextRun: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    successRate: 87.3,
-    executionCount: 23,
-    avgDuration: 180,
-    tags: ['relatório', 'mensal', 'email'],
-    createdAt: new Date('2024-01-05'),
-    updatedAt: new Date('2024-01-19')
-  },
-  {
-    id: '4',
-    name: 'Limpeza de Logs Antigos',
-    description: 'Remove logs do sistema com mais de 30 dias para liberar espaço em disco',
-    status: 'paused',
-    type: 'script',
-    lastRun: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    nextRun: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    successRate: 100,
-    executionCount: 45,
-    avgDuration: 8,
-    tags: ['limpeza', 'logs', 'manutenção'],
-    createdAt: new Date('2024-01-12'),
-    updatedAt: new Date('2024-01-17')
-  },
-  {
-    id: '5',
-    name: 'Monitoramento de Serviços',
-    description: 'Monitora a saúde dos serviços críticos e envia alertas em caso de falha',
-    status: 'running',
-    type: 'workflow',
-    lastRun: new Date(Date.now() - 5 * 60 * 1000),
-    nextRun: new Date(Date.now() + 10 * 60 * 1000),
-    successRate: 95.8,
-    executionCount: 2340,
-    avgDuration: 3,
-    tags: ['monitoramento', 'alertas', 'crítico'],
-    createdAt: new Date('2024-01-08'),
-    updatedAt: new Date('2024-01-21')
-  }
-];
+const ExecutionCard = ({ execution, onStop, onView, isStopping = false }: ExecutionCardProps) => {
+  const getStatusIcon = (status: AutomationStatus) => {
+    switch (status) {
+      case 'running': return <Activity className="w-4 h-4 text-blue-600 animate-spin" />;
+      case 'completed': return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'error': return <XCircle className="w-4 h-4 text-red-600" />;
+      case 'paused': return <Pause className="w-4 h-4 text-yellow-600" />;
+      case 'scheduled': return <Clock className="w-4 h-4 text-purple-600" />;
+      default: return <AlertCircle className="w-4 h-4 text-gray-600" />;
+    }
+  };
 
-const FilterPanel: React.FC<{
-  statusFilter: FilterStatus;
-  typeFilter: FilterType;
-  onStatusChange: (status: FilterStatus) => void;
-  onTypeChange: (type: FilterType) => void;
-  onClear: () => void;
-}> = ({ statusFilter, typeFilter, onStatusChange, onTypeChange, onClear }) => {
-  const statusOptions: { value: FilterStatus; label: string; count: number }[] = [
-    { value: 'all', label: 'Todos', count: mockAutomations.length },
-    { value: 'running', label: 'Executando', count: mockAutomations.filter(a => a.status === 'running').length },
-    { value: 'scheduled', label: 'Agendado', count: mockAutomations.filter(a => a.status === 'scheduled').length },
-    { value: 'paused', label: 'Pausado', count: mockAutomations.filter(a => a.status === 'paused').length },
-    { value: 'error', label: 'Erro', count: mockAutomations.filter(a => a.status === 'error').length },
-    { value: 'stopped', label: 'Parado', count: mockAutomations.filter(a => a.status === 'stopped').length }
-  ];
+  const getStatusColor = (status: AutomationStatus): string => {
+    switch (status) {
+      case 'running': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'error': return 'bg-red-100 text-red-800';
+      case 'paused': return 'bg-yellow-100 text-yellow-800';
+      case 'scheduled': return 'bg-purple-100 text-purple-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
 
-  const typeOptions: { value: FilterType; label: string }[] = [
-    { value: 'all', label: 'Todos os Tipos' },
-    { value: 'workflow', label: 'Workflow' },
-    { value: 'script', label: 'Script' },
-    { value: 'api', label: 'API' },
-    { value: 'scheduled', label: 'Agendado' }
-  ];
+  const getPriorityColor = (priority: AutomationPriority): string => {
+    switch (priority) {
+      case 'critical': return 'bg-red-100 text-red-800';
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'low': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const duration = execution.completedAt && execution.startedAt 
+    ? Math.round((execution.completedAt.getTime() - execution.startedAt.getTime()) / 1000)
+    : null;
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Filtros</h3>
-          <Button variant="ghost" size="sm" onClick={onClear}>
-            Limpar
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-3">
+          {getStatusIcon(execution.status)}
+          <div>
+            <h4 className="font-medium text-gray-900">Execução #{execution.id.slice(0, 8)}</h4>
+            <p className="text-sm text-gray-500">
+              {execution.startedAt.toLocaleString()}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Badge className={getStatusColor(execution.status)}>
+            {execution.status}
+          </Badge>
+          <Badge className={getPriorityColor(execution.priority)}>
+            {execution.priority}
+          </Badge>
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4 text-sm text-gray-500">
+          <span>Automação: {execution.automationId}</span>
+          {duration && (
+            <span>{duration}s</span>
+          )}
+        </div>
+        
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onStop(execution.id)}
+            disabled={execution.status !== 'running' || isStopping}
+          >
+            {isStopping ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                Parando...
+              </>
+            ) : (
+              <>
+                <Square className="w-4 h-4 mr-2" />
+                Parar
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onView(execution.id)}
+          >
+            <Eye className="w-4 h-4" />
           </Button>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {/* Status Filter */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Status</label>
-            <div className="space-y-2">
-              {statusOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => onStatusChange(option.value)}
-                  className={cn(
-                    'w-full flex items-center justify-between p-2 rounded-lg text-left transition-colors',
-                    statusFilter === option.value
-                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
-                      : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                  )}
-                >
-                  <span className="text-sm">{option.label}</span>
-                  <Badge variant="secondary" size="sm">{option.count}</Badge>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Type Filter */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Tipo</label>
-            <div className="space-y-2">
-              {typeOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => onTypeChange(option.value)}
-                  className={cn(
-                    'w-full flex items-center p-2 rounded-lg text-left transition-colors',
-                    typeFilter === option.value
-                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
-                      : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                  )}
-                >
-                  <span className="text-sm">{option.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </CardContent>
+      </div>
     </Card>
   );
 };
 
-const AutomationListItem: React.FC<{
-  automation: AutomationData;
-  onAction: (action: string, id: string) => void;
-}> = ({ automation, onAction }) => {
-  return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 flex-1">
-            <StatusIndicator
-               status={automation.status}
-               size="md"
-             />
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-1">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                  {automation.name}
-                </h3>
-                <Badge variant="secondary" size="sm">
-                  {automation.type}
-                </Badge>
-              </div>
-              <p className="text-xs text-gray-600 dark:text-gray-300 truncate mb-2">
-                {automation.description}
-              </p>
-              <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
-                <span>Taxa: {automation.successRate}%</span>
-                <span>Execuções: {automation.executionCount}</span>
-                {automation.lastRun && (
-                  <span>Última: {automation.lastRun.toLocaleString()}</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAction('start', automation.id)}
-              disabled={automation.status === 'running'}
-            >
-              <Play className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAction('pause', automation.id)}
-              disabled={automation.status !== 'running'}
-            >
-              <Pause className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAction('edit', automation.id)}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-export const Automations: React.FC = () => {
-  const [automations, setAutomations] = useState<AutomationData[]>(mockAutomations);
+export default function Automations() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
-  const [typeFilter, setTypeFilter] = useState<FilterType>('all');
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedAutomation, setSelectedAutomation] = useState<string | null>(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedExecution, setSelectedExecution] = useState<AutomationExecution | null>(null);
+  const [showExecutionModal, setShowExecutionModal] = useState(false);
+  const [executingPlugins, setExecutingPlugins] = useState<Set<string>>(new Set());
+  const [stoppingExecutions, setStoppingExecutions] = useState<Set<string>>(new Set());
 
-  const filteredAndSortedAutomations = useMemo(() => {
-    let filtered = automations.filter(automation => {
-      const matchesSearch = automation.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           automation.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           automation.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      const matchesStatus = statusFilter === 'all' || automation.status === statusFilter;
-      const matchesType = typeFilter === 'all' || automation.type === typeFilter;
-      
-      return matchesSearch && matchesStatus && matchesType;
-    });
+  const {
+    plugins,
+    executions,
+    executeAutomation,
+    stopExecution,
+    loading,
+    error,
+    refresh
+  } = useAutomations({ autoRefresh: true });
 
-    filtered.sort((a, b) => {
-      let aValue: any = a[sortField];
-      let bValue: any = b[sortField];
+  // Filtrar plugins por termo de busca
+  const filteredPlugins = plugins.filter(plugin =>
+    plugin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    plugin.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    plugin.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Filtrar execuções por status
+  const filteredExecutions = executions.filter(execution => {
+    if (statusFilter === 'all') return true;
+    return execution.status === statusFilter;
+  });
+
+  const handleExecutePlugin = async (plugin: AutomationPlugin) => {
+    try {
+      setExecutingPlugins(prev => new Set(prev).add(plugin.type));
+      toast.info(`Iniciando execução da automação "${plugin.name}"...`);
       
-      if (sortField === 'lastRun' || sortField === 'name') {
-        aValue = sortField === 'lastRun' ? (a.lastRun?.getTime() || 0) : a.name.toLowerCase();
-        bValue = sortField === 'lastRun' ? (b.lastRun?.getTime() || 0) : b.name.toLowerCase();
+      // Obter configuração padrão do plugin
+      const defaultConfig = plugin.getDefaultConfig();
+      
+      // Buscar credenciais do arquivo .env para RH Evolution
+      let finalConfig = { ...defaultConfig };
+      
+      if (plugin.type === 'rh-evolution') {
+        try {
+          // Buscar credenciais das variáveis de ambiente
+          const serverUrl = import.meta.env.VITE_RH_EVOLUTION_SERVER_URL || '';
+          const username = import.meta.env.VITE_RH_EVOLUTION_USERNAME || '';
+          const password = import.meta.env.VITE_RH_EVOLUTION_PASSWORD || '';
+          
+          if (serverUrl && username && password) {
+            console.log('🔐 Carregando credenciais do arquivo .env para RH Evolution');
+            finalConfig = {
+              ...defaultConfig,
+              parameters: {
+                ...defaultConfig.parameters,
+                serverUrl,
+                username,
+                password
+              }
+            };
+          } else {
+            console.warn('⚠️ Credenciais não encontradas no arquivo .env, usando configuração padrão');
+            console.warn('Variáveis esperadas: VITE_RH_EVOLUTION_SERVER_URL, VITE_RH_EVOLUTION_USERNAME, VITE_RH_EVOLUTION_PASSWORD');
+          }
+        } catch (error) {
+          console.error('❌ Erro ao buscar credenciais do arquivo .env:', error);
+          console.warn('⚠️ Usando configuração padrão devido ao erro');
+        }
       }
       
-      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return filtered;
-  }, [automations, searchTerm, statusFilter, typeFilter, sortField, sortOrder]);
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('asc');
+      const config: AutomationConfig = {
+           ...finalConfig,
+           id: `${plugin.type}-${Date.now()}`,
+           name: plugin.name,
+           description: plugin.description,
+           version: plugin.version,
+           type: plugin.type,
+           enabled: true,
+           parameters: finalConfig.parameters || {},
+           metadata: {
+             author: plugin.author,
+             createdAt: new Date(),
+             updatedAt: new Date(),
+             tags: [plugin.category],
+             category: plugin.category
+           }
+         };
+      
+      await executeAutomation(config, 'medium');
+      toast.success(`Automação "${plugin.name}" iniciada com sucesso!`);
+      refresh();
+    } catch (error) {
+      console.error('Erro ao executar automação:', error);
+      toast.error(`Erro ao executar automação "${plugin.name}": ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    } finally {
+      setExecutingPlugins(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(plugin.type);
+        return newSet;
+      });
     }
   };
 
-  const handleAction = (action: string, id: string) => {
-    console.log(`Action: ${action} on automation: ${id}`);
+  const handleStopExecution = async (executionId: string) => {
+    try {
+      setStoppingExecutions(prev => new Set(prev).add(executionId));
+      toast.info('Parando execução...');
+      await stopExecution(executionId);
+      toast.success('Execução parada com sucesso!');
+      refresh();
+    } catch (error) {
+      console.error('Erro ao parar execução:', error);
+      toast.error(`Erro ao parar execução: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    } finally {
+      setStoppingExecutions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(executionId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleViewExecution = (executionId: string) => {
+    const execution = executions.find(e => e.id === executionId);
+    if (execution) {
+      setSelectedExecution(execution);
+      setShowExecutionModal(true);
+    }
+  };
+
+
+
+  // Função para obter o status atual de um plugin
+  const getPluginStatus = (plugin: AutomationPlugin): AutomationStatus => {
+    // Verificar se há execuções em andamento para este plugin
+    const runningExecution = executions.find(
+      execution => execution.automationId === plugin.type && execution.status === 'running'
+    );
     
-    if (action === 'delete') {
-      setSelectedAutomation(id);
-      setShowDeleteModal(true);
+    if (runningExecution) {
+      return 'running';
     }
     
-    // Aqui você implementaria as ações reais
-  };
-
-  const handleDelete = () => {
-    if (selectedAutomation) {
-      setAutomations(prev => prev.filter(a => a.id !== selectedAutomation));
-      setSelectedAutomation(null);
-      setShowDeleteModal(false);
+    // Verificar a última execução para determinar o status
+    const lastExecution = executions
+      .filter(execution => execution.automationId === plugin.type)
+      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0];
+    
+    if (lastExecution) {
+      return lastExecution.status;
     }
+    
+    return 'idle';
   };
 
-  const clearFilters = () => {
-    setStatusFilter('all');
-    setTypeFilter('all');
-    setSearchTerm('');
+  // Função para obter a última execução de um plugin
+  const getLastExecution = (plugin: AutomationPlugin) => {
+    const lastExecution = executions
+      .filter(execution => execution.automationId === plugin.type)
+      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0];
+    
+    if (!lastExecution) {
+      return undefined;
+    }
+    
+    return {
+      timestamp: lastExecution.startedAt,
+      success: lastExecution.status === 'completed',
+      message: lastExecution.result?.error || 
+               (lastExecution.status === 'completed' ? 'Execução concluída com sucesso' : 'Execução finalizada')
+    };
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Erro ao carregar automações</h3>
+        <p className="text-gray-500 mb-4">{error}</p>
+        <Button onClick={refresh}>Tentar novamente</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Automações</h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Gerencie todas as suas automações ({filteredAndSortedAutomations.length} de {automations.length})
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <Button variant="outline">
-              <Upload className="h-4 w-4 mr-2" />
-              Importar
-            </Button>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Automação
-            </Button>
-          </div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Automações</h1>
+          <p className="text-gray-600">Gerencie e execute suas automações</p>
         </div>
-
-        {/* Controls */}
-        <div className="flex items-center justify-between space-x-4">
-          <div className="flex items-center space-x-4 flex-1">
-            <Input
-              placeholder="Buscar automações..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              leftIcon={<Search className="h-4 w-4" />}
-              className="max-w-md"
-            />
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-              className={cn(showFilters && 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300')}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filtros
-            </Button>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleSort('name')}
-            >
-              {sortField === 'name' && sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-            >
-              {viewMode === 'grid' ? <List className="h-4 w-4" /> : <Grid className="h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex gap-6">
-          {/* Filters Sidebar */}
-          {showFilters && (
-            <div className="w-64 flex-shrink-0">
-              <FilterPanel
-                statusFilter={statusFilter}
-                typeFilter={typeFilter}
-                onStatusChange={setStatusFilter}
-                onTypeChange={setTypeFilter}
-                onClear={clearFilters}
-              />
-            </div>
-          )}
-
-          {/* Main Content */}
-          <div className="flex-1">
-            {filteredAndSortedAutomations.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <div className="text-gray-500 dark:text-gray-400">
-                    <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <h3 className="text-lg font-medium mb-2 dark:text-gray-300">Nenhuma automação encontrada</h3>
-                    <p className="text-sm dark:text-gray-400">
-                      {searchTerm || statusFilter !== 'all' || typeFilter !== 'all'
-                        ? 'Tente ajustar os filtros de busca'
-                        : 'Comece criando sua primeira automação'}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className={cn(
-                viewMode === 'grid'
-                  ? 'grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4'
-                  : 'space-y-4'
-              )}>
-                {filteredAndSortedAutomations.map((automation) => (
-                  viewMode === 'grid' ? (
-                    <AutomationCard
-                      key={automation.id}
-                      {...automation}
-                      onPlay={() => handleAction('start', automation.id)}
-                      onPause={() => handleAction('pause', automation.id)}
-                      onStop={() => handleAction('stop', automation.id)}
-                    />
-                  ) : (
-                    <AutomationListItem
-                      key={automation.id}
-                      automation={automation}
-                      onAction={handleAction}
-                    />
-                  )
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Delete Confirmation Modal */}
-        <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
-          <ModalHeader>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Confirmar Exclusão</h3>
-          </ModalHeader>
-          <ModalContent>
-            <p className="text-gray-600 dark:text-gray-300">
-              Tem certeza que deseja excluir esta automação? Esta ação não pode ser desfeita.
-            </p>
-          </ModalContent>
-          <ModalFooter>
-            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={handleDelete}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Excluir
-            </Button>
-          </ModalFooter>
-        </Modal>
+        <Button>
+          <Plus className="w-4 h-4 mr-2" />
+          Nova Automação
+        </Button>
       </div>
-  );
-};
 
-export default Automations;
+      {/* Filtros */}
+      <div className="flex items-center space-x-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Buscar automações..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Filter className="w-4 h-4 text-gray-500" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as FilterStatus)}
+            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">Todos os status</option>
+            <option value="idle">Inativo</option>
+            <option value="running">Executando</option>
+            <option value="paused">Pausado</option>
+            <option value="completed">Concluído</option>
+            <option value="error">Erro</option>
+            <option value="scheduled">Agendado</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Plugins Disponíveis */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Plugins Disponíveis</h2>
+        {filteredPlugins.length === 0 ? (
+          <Card className="p-8 text-center">
+            <Zap className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum plugin encontrado</h3>
+            <p className="text-gray-500">Tente ajustar os filtros de busca.</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredPlugins.map((plugin) => {
+              // Renderizar componente específico baseado no tipo do plugin
+              if (plugin.type === 'rh-evolution') {
+                return (
+                  <RHEvolutionPluginComponent
+                    key={plugin.type}
+                    onExecute={handleExecutePlugin}
+                    status={getPluginStatus(plugin)}
+                    lastExecution={getLastExecution(plugin)}
+                    isExecuting={executingPlugins.has(plugin.type)}
+                  />
+                );
+              }
+              
+              // Fallback para o GenericPluginComponent
+               return (
+                 <GenericPluginComponent
+                   key={plugin.type}
+                   plugin={plugin}
+                   onExecute={handleExecutePlugin}
+                   status={getPluginStatus(plugin)}
+                   lastExecution={getLastExecution(plugin)}
+                   isExecuting={executingPlugins.has(plugin.type)}
+                 />
+               );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Execuções Recentes */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Execuções Recentes</h2>
+        {filteredExecutions.length === 0 ? (
+          <Card className="p-8 text-center">
+            <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma execução encontrada</h3>
+            <p className="text-gray-500">Execute uma automação para ver o histórico aqui.</p>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {filteredExecutions.map((execution) => (
+              <ExecutionCard
+                key={execution.id}
+                execution={execution}
+                onStop={handleStopExecution}
+                onView={handleViewExecution}
+                isStopping={stoppingExecutions.has(execution.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal de Detalhes da Execução */}
+      {showExecutionModal && selectedExecution && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Detalhes da Execução</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowExecutionModal(false)}
+              >
+                ×
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">ID</label>
+                  <p className="text-sm text-gray-900">{selectedExecution.id}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Status</label>
+                  <Badge className={getStatusColor(selectedExecution.status)}>
+                    {selectedExecution.status}
+                  </Badge>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Iniciado em</label>
+                  <p className="text-sm text-gray-900">{selectedExecution.startedAt.toLocaleString()}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Prioridade</label>
+                  <Badge className={getPriorityColor(selectedExecution.priority)}>
+                    {selectedExecution.priority}
+                  </Badge>
+                </div>
+              </div>
+              
+              {selectedExecution.result && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Resultado</label>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <pre className="text-sm text-gray-800 whitespace-pre-wrap">
+                      {JSON.stringify(selectedExecution.result, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+
+    </div>
+  );
+}
+
+// Função auxiliar para cores de status (fora do componente para evitar redeclaração)
+function getStatusColor(status: AutomationStatus): string {
+  switch (status) {
+    case 'running': return 'bg-blue-100 text-blue-800';
+    case 'completed': return 'bg-green-100 text-green-800';
+    case 'error': return 'bg-red-100 text-red-800';
+    case 'paused': return 'bg-yellow-100 text-yellow-800';
+    case 'scheduled': return 'bg-purple-100 text-purple-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+}
+
+function getPriorityColor(priority: AutomationPriority): string {
+  switch (priority) {
+    case 'critical': return 'bg-red-100 text-red-800';
+    case 'high': return 'bg-orange-100 text-orange-800';
+    case 'medium': return 'bg-yellow-100 text-yellow-800';
+    case 'low': return 'bg-green-100 text-green-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+}

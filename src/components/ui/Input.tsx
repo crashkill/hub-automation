@@ -1,14 +1,14 @@
 import React from 'react';
 import { cn } from '../../utils/cn';
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
   label?: string;
   error?: string;
   helperText?: string;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
   variant?: 'default' | 'filled';
-  inputSize?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg';
+  icon?: React.ReactNode;
+  iconPosition?: 'left' | 'right';
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -18,112 +18,62 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     label,
     error,
     helperText,
-    leftIcon,
-    rightIcon,
     variant = 'default',
-    inputSize = 'md',
-    disabled,
+    size = 'md',
+    icon,
+    iconPosition = 'left',
     ...props
   }, ref) => {
-    const inputId = React.useId();
-    const hasError = !!error;
-
-    const baseClasses = [
-      'w-full rounded-lg transition-all duration-200',
-      'focus:outline-none focus:ring-2 focus:ring-offset-1',
-      'disabled:opacity-50 disabled:cursor-not-allowed',
-      'placeholder:text-gray-400',
-    ];
-
+    const hasError = Boolean(error);
+    
+    const baseClasses = 'flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
+    
     const variantClasses = {
-      default: [
-        'border border-gray-300 bg-white',
-        'focus:border-blue-500 focus:ring-blue-500/20',
-        hasError ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : '',
-      ],
-      filled: [
-        'border-0 bg-gray-100',
-        'focus:bg-white focus:ring-blue-500/20',
-        hasError ? 'bg-red-50 focus:ring-red-500/20' : '',
-      ],
+      default: 'border-gray-300 focus:border-blue-500',
+      filled: 'bg-gray-50 border-gray-200 focus:bg-white focus:border-blue-500'
     };
-
+    
     const sizeClasses = {
-      sm: 'px-3 py-2 text-sm',
-      md: 'px-4 py-2.5 text-base',
-      lg: 'px-4 py-3 text-lg',
+      sm: 'h-8 px-2 text-xs',
+      md: 'h-10 px-3 text-sm',
+      lg: 'h-12 px-4 text-base'
     };
-
-    const iconPadding = {
-      sm: leftIcon ? 'pl-10' : rightIcon ? 'pr-10' : '',
-      md: leftIcon ? 'pl-12' : rightIcon ? 'pr-12' : '',
-      lg: leftIcon ? 'pl-14' : rightIcon ? 'pr-14' : '',
-    };
-
-    const iconSize = {
-      sm: 'h-4 w-4',
-      md: 'h-5 w-5',
-      lg: 'h-6 w-6',
-    };
-
-    const iconPosition = {
-      sm: leftIcon ? 'left-3' : 'right-3',
-      md: leftIcon ? 'left-4' : 'right-4',
-      lg: leftIcon ? 'left-4' : 'right-4',
-    };
-
+    
+    const errorClasses = hasError ? 'border-red-500 focus:border-red-500' : '';
+    
     return (
       <div className="w-full">
         {label && (
-          <label
-            htmlFor={inputId}
-            className={cn(
-              'block text-sm font-medium mb-2',
-              hasError ? 'text-red-700' : 'text-gray-700',
-              disabled && 'opacity-50'
-            )}
-          >
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             {label}
           </label>
         )}
         
         <div className="relative">
-          {leftIcon && (
-            <div className={cn(
-              'absolute top-1/2 transform -translate-y-1/2 text-gray-400',
-              iconPosition[inputSize],
-              disabled && 'opacity-50'
-            )}>
-              <div className={iconSize[inputSize]}>
-                {leftIcon}
-              </div>
+          {icon && iconPosition === 'left' && (
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+              {icon}
             </div>
           )}
           
           <input
-            ref={ref}
-            id={inputId}
             type={type}
             className={cn(
               baseClasses,
               variantClasses[variant],
-              sizeClasses[inputSize],
-              iconPadding[inputSize],
+              sizeClasses[size],
+              errorClasses,
+              icon && iconPosition === 'left' && 'pl-10',
+              icon && iconPosition === 'right' && 'pr-10',
               className
             )}
-            disabled={disabled}
+            ref={ref}
             {...props}
           />
           
-          {rightIcon && (
-            <div className={cn(
-              'absolute top-1/2 transform -translate-y-1/2 text-gray-400',
-              iconPosition[inputSize],
-              disabled && 'opacity-50'
-            )}>
-              <div className={iconSize[inputSize]}>
-                {rightIcon}
-              </div>
+          {icon && iconPosition === 'right' && (
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+              {icon}
             </div>
           )}
         </div>

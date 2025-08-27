@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex-1 max-w-md mx-4 hidden md:block">
           <Input
             placeholder="Buscar automações, relatórios..."
-            leftIcon={<Search className="h-4 w-4" />}
+            icon={<Search className="h-4 w-4" />}
             className="w-full"
           />
         </div>

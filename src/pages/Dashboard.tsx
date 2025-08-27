@@ -15,6 +15,7 @@ import {
   Plus,
   FileText
 } from 'lucide-react';
+import { ExecutionChart, PerformanceChart, StatusPieChart } from '../components/charts/ExecutionChart';
 
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -341,53 +342,34 @@ export const Dashboard: React.FC = () => {
         <Card>
           <CardHeader>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Execuções por Hora</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Sucessos vs Erros nas últimas 24 horas</p>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
-              <BarChart3 className="h-8 w-8 mr-2" />
-              Gráfico de execuções (implementar com recharts)
-            </div>
+            <ExecutionChart />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Status das Automações</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Distribuição atual dos status</p>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Executando</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">8</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Agendado</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">4</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Pausado</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">2</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Erro</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">1</span>
-              </div>
-            </div>
+            <StatusPieChart />
           </CardContent>
         </Card>
       </div>
+
+      {/* Performance Chart */}
+      <Card>
+        <CardHeader>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Performance Semanal</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Tempo médio de execução e volume de automações</p>
+        </CardHeader>
+        <CardContent>
+          <PerformanceChart />
+        </CardContent>
+      </Card>
 
       {/* Recent Automations */}
       <Card>

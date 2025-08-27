@@ -116,17 +116,23 @@ hub-automation/
 ## 🚀 Scripts Disponíveis
 
 ```bash
-# Desenvolvimento
-npm run dev          # Inicia servidor de desenvolvimento
+# Desenvolvimento (com Doppler)
+npm run dev          # Inicia servidor com variáveis do Doppler
+npm run dev:local    # Inicia servidor sem Doppler (fallback)
 
-# Build
-npm run build        # Gera build de produção
-npm run preview      # Preview do build
+# Build (com Doppler)
+npm run build        # Gera build de produção com Doppler
+npm run build:local  # Gera build sem Doppler (fallback)
+npm run preview      # Preview do build com Doppler
+npm run preview:local # Preview sem Doppler (fallback)
 
 # Qualidade de Código
 npm run lint         # Executa ESLint
-npm run lint:fix     # Corrige problemas do ESLint
-npm run type-check   # Verifica tipos TypeScript
+npm run check        # Verifica tipos TypeScript
+
+# Utilitários do Doppler
+npm run doppler:setup   # Configurar projeto Doppler
+npm run doppler:secrets # Listar credenciais configuradas
 ```
 
 ## 🎨 Temas
@@ -140,16 +146,158 @@ Alternância automática baseada na preferência do sistema ou manual via interf
 
 ## 🔧 Configuração
 
-### Variáveis de Ambiente
+### 🔐 Gerenciamento de Segredos com Doppler
 
-Crie um arquivo `.env.local` na raiz do projeto:
+Este projeto usa o **Doppler** para gerenciamento seguro de variáveis de ambiente e credenciais. O Doppler oferece:
 
-```env
-VITE_API_URL=http://localhost:3000/api
-VITE_APP_NAME=Hub Automation
+- 🔒 **Segurança**: Credenciais criptografadas e nunca expostas em arquivos
+- 🌍 **Multi-ambiente**: Configurações separadas para dev, staging e produção
+- 👥 **Colaboração**: Compartilhamento seguro entre equipes
+- 📝 **Auditoria**: Histórico completo de mudanças
+
+#### Instalação do Doppler CLI
+
+```bash
+# macOS
+brew install dopplerhq/cli/doppler
+
+# Linux/WSL
+curl -Ls https://cli.doppler.com/install.sh | sh
+
+# Windows
+scoop install doppler
 ```
 
-### Personalização do Tema
+#### Configuração Inicial
+
+1. **Autentique-se no Doppler**:
+```bash
+doppler login
+```
+
+2. **Configure o projeto** (já configurado para `hub-automation`):
+```bash
+doppler setup --project hub-automation --config dev
+```
+
+3. **Verifique as credenciais configuradas**:
+```bash
+npm run doppler:secrets
+# ou
+doppler secrets
+```
+
+#### Credenciais Configuradas
+
+O projeto possui as seguintes credenciais configuradas no Doppler:
+
+- `LOGIN_USERNAME`: Nome de usuário para autenticação
+- `LOGIN_EMAIL`: E-mail para autenticação
+- `LOGIN_PASSWORD`: Senha para autenticação
+- `DOPPLER_PROJECT`: Projeto atual (hub-automation)
+- `DOPPLER_ENVIRONMENT`: Ambiente atual (dev)
+- `DOPPLER_CONFIG`: Configuração atual (dev)
+
+#### Scripts com Doppler
+
+Os scripts do projeto foram configurados para usar o Doppler automaticamente:
+
+```bash
+# Scripts com Doppler (recomendado)
+npm run dev          # doppler run -- vite
+npm run build        # doppler run -- tsc -b && doppler run -- vite build
+npm run preview      # doppler run -- vite preview
+
+# Scripts locais (fallback)
+npm run dev:local    # vite (sem Doppler)
+npm run build:local  # tsc -b && vite build (sem Doppler)
+npm run preview:local # vite preview (sem Doppler)
+
+# Utilitários do Doppler
+npm run doppler:setup   # Configurar projeto Doppler
+npm run doppler:secrets # Listar todas as credenciais
+```
+
+#### Adicionando Novas Credenciais
+
+```bash
+# Adicionar nova credencial
+doppler secrets set NOVA_CREDENCIAL valor_da_credencial
+
+# Adicionar credencial com caracteres especiais
+doppler secrets set API_KEY 'sk-1234567890abcdef'
+
+# Verificar se foi adicionada
+doppler secrets
+```
+
+#### Ambientes
+
+O projeto suporta múltiplos ambientes:
+
+- **dev**: Desenvolvimento local
+- **stg**: Staging/Homologação
+- **prd**: Produção
+
+```bash
+# Trocar para staging
+doppler setup --project hub-automation --config stg
+
+# Trocar para produção
+doppler setup --project hub-automation --config prd
+
+# Voltar para desenvolvimento
+doppler setup --project hub-automation --config dev
+```
+
+#### Uso no Código
+
+As variáveis do Doppler são acessíveis via `process.env`:
+
+```typescript
+// Exemplo de uso das credenciais
+const loginCredentials = {
+  username: process.env.LOGIN_USERNAME,
+  email: process.env.LOGIN_EMAIL,
+  password: process.env.LOGIN_PASSWORD
+};
+
+// Sempre verificar se a variável existe
+if (!process.env.LOGIN_USERNAME) {
+  throw new Error('LOGIN_USERNAME não configurado no Doppler');
+}
+```
+
+#### Troubleshooting
+
+**Problema**: Comando `doppler` não encontrado
+```bash
+# Verifique se o Doppler está instalado
+doppler --version
+
+# Se não estiver, instale novamente
+brew install dopplerhq/cli/doppler
+```
+
+**Problema**: Credenciais não carregadas
+```bash
+# Verifique se está no projeto correto
+doppler configure get
+
+# Reconfigure se necessário
+npm run doppler:setup
+```
+
+**Problema**: Acesso negado
+```bash
+# Faça login novamente
+doppler login
+
+# Verifique suas permissões no projeto
+doppler me
+```
+
+### 🎨 Personalização do Tema
 
 Edite o arquivo `tailwind.config.js` para personalizar cores, fontes e espaçamentos:
 

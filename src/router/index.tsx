@@ -3,6 +3,8 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Dashboard, Automations, Settings } from '../pages';
 import Home from '../pages/Home';
 import { Layout } from '../components/layout';
+import ProtectedRoute from '../components/ProtectedRoute';
+import Login from '../components/Login';
 
 // Error Boundary Component
 const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -57,7 +59,11 @@ const Loading: React.FC = () => {
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <Layout />,
+    element: (
+      <ProtectedRoute>
+        <Layout />
+      </ProtectedRoute>
+    ),
     errorElement: <ErrorBoundary><NotFound /></ErrorBoundary>,
     children: [
       {
@@ -92,14 +98,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/login',
-    element: (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Login</h1>
-          <p className="text-gray-600">Página de login em desenvolvimento</p>
-        </div>
-      </div>
-    )
+    element: <Login />
   },
   {
     path: '*',
